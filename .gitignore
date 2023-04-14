@@ -1,3 +1,9 @@
+*.mp4
+results/*
+!results/.gitkeep
+media/video/*
+!media/video/.gitkeep
+
 *.pth
 # Byte-compiled / optimized / DLL files
 __pycache__/
