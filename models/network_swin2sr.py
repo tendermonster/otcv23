@@ -450,6 +450,14 @@ class BasicLayer(nn.Module):
             
 class PatchEmbed(nn.Module):
     r""" Image to Patch Embedding
+    Its purpose is to convert an input image into a sequence of fixed-length embeddings or tokens, which can then be processed by a transformer model.
+    In traditional convolutional neural networks (CNNs), images are processed using convolutional layers, 
+    pooling operations, and fully connected layers. 
+    However, transformer-based models do not directly operate on the raw pixel data. 
+    Instead, they require a sequence of tokens as input. 
+    The Image to Patch Embedding step serves the purpose of breaking down the image into patches 
+    and converting them into meaningful representations suitable for the subsequent transformer layers.
+
     Args:
         img_size (int): Image size.  Default: 224.
         patch_size (int): Patch token size. Default: 4.
@@ -471,7 +479,8 @@ class PatchEmbed(nn.Module):
         self.in_chans = in_chans
         self.embed_dim = embed_dim
 
-        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
+        # non overlapping convolution
+        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size) # non overlapping convolution
         if norm_layer is not None:
             self.norm = norm_layer(embed_dim)
         else:
@@ -570,6 +579,9 @@ class RSTB(nn.Module):
 
 class PatchUnEmbed(nn.Module):
     r""" Image to Patch Unembedding
+    The provided class, PatchUnEmbed, represents the "Image to Patch Unembedding" operation. 
+    It is used to reverse the process of image patch embedding, 
+    converting a sequence of embeddings back into an image representation.
 
     Args:
         img_size (int): Image size.  Default: 224.
@@ -604,12 +616,16 @@ class PatchUnEmbed(nn.Module):
 
 class Upsample(nn.Sequential):
     """Upsample module.
+    This is used for upscaling the final output of the network using PixelShuffle.
+    This build a simple conv2d model to upscale an image
 
     Args:
         scale (int): Scale factor. Supported scales: 2^n and 3.
         num_feat (int): Channel number of intermediate features.
     """
 
+
+    # hier wird großen 
     def __init__(self, scale, num_feat):
         m = []
         if (scale & (scale - 1)) == 0:  # scale = 2^n
@@ -720,6 +736,10 @@ class Swin2SR(nn.Module):
 
         #####################################################################################################
         ################################### 1, shallow feature extraction ###################################
+        # in_channels (int): Number of channels in the input image
+        # out_channels (int): Number of channels produced by the convolution
+        # kernel_size (int or tuple): Size of the convolving kernel
+        # stride (int or tuple, optional): Stride of the convolution. Default: 1
         self.conv_first = nn.Conv2d(num_in_ch, embed_dim, 3, 1, 1)
 
         #####################################################################################################
@@ -803,7 +823,12 @@ class Swin2SR(nn.Module):
         self.norm = norm_layer(self.num_features)
 
         # build the last conv layer in deep feature extraction
+        # in_channels: int,
+        # out_channels: int,
+        # kernel_size: _size_2_t,
+        # stride: _size_2_t = 1,
         if resi_connection == '1conv':
+            # makes further results better
             self.conv_after_body = nn.Conv2d(embed_dim, embed_dim, 3, 1, 1)
         elif resi_connection == '3conv':
             # to save parameters and memory
@@ -822,6 +847,7 @@ class Swin2SR(nn.Module):
             self.upsample = Upsample(upscale, num_feat)
             self.conv_last = nn.Conv2d(num_feat, num_out_ch, 3, 1, 1)
         elif self.upsampler == 'pixelshuffle_aux':
+            # setup high quality image reconstruction for upsampling
             self.conv_bicubic = nn.Conv2d(num_in_ch, num_feat, 3, 1, 1)
             self.conv_before_upsample = nn.Sequential(
                 nn.Conv2d(embed_dim, num_feat, 3, 1, 1),
@@ -831,6 +857,7 @@ class Swin2SR(nn.Module):
                 nn.Conv2d(3, num_feat, 3, 1, 1),
                 nn.LeakyReLU(inplace=True))            
             self.upsample = Upsample(upscale, num_feat)
+            # num_out_ch = in_chans -> weil man hier das bild wiederherstellen möchte
             self.conv_last = nn.Conv2d(num_feat, num_out_ch, 3, 1, 1)
             
         elif self.upsampler == 'pixelshuffle_hf':
@@ -885,6 +912,11 @@ class Swin2SR(nn.Module):
         return {'relative_position_bias_table'}
 
     def check_image_size(self, x):
+        # Performs padding if needed
+
+        # The code you provided is a method called check_image_size within a class. 
+        # The purpose of this method is to check the size of an input image tensor 
+        # and perform padding if necessary to ensure it is divisible by a specified window_size.
         _, _, h, w = x.size()
         mod_pad_h = (self.window_size - h % self.window_size) % self.window_size
         mod_pad_w = (self.window_size - w % self.window_size) % self.window_size
@@ -892,16 +924,18 @@ class Swin2SR(nn.Module):
         return x
 
     def forward_features(self, x):
+        # swin stuff to forward the input
         x_size = (x.shape[2], x.shape[3])
         x = self.patch_embed(x)
         if self.ape:
             x = x + self.absolute_pos_embed
         x = self.pos_drop(x)
-
+        # forward the input trough deep feature extraction block
         for layer in self.layers:
             x = layer(x, x_size)
 
         x = self.norm(x)  # B L C
+        # last layer we get out the patches
         x = self.patch_unembed(x, x_size)
 
         return x
@@ -923,6 +957,7 @@ class Swin2SR(nn.Module):
 
     def forward(self, x):
         H, W = x.shape[2:]
+        # 
         x = self.check_image_size(x)
 
         self.mean = self.mean.type_as(x)
@@ -931,19 +966,25 @@ class Swin2SR(nn.Module):
         if self.upsampler == 'pixelshuffle':
             # for classical SR
             x = self.conv_first(x)
-            x = self.conv_after_body(self.forward_features(x)) + x
-            x = self.conv_before_upsample(x)
-            x = self.conv_last(self.upsample(x))
+            # the last convolution
+            x = self.conv_after_body(self.forward_features(x)) + x # embed_dim = 96
+            # num_feat (int): Channel number of intermediate features.
+            x = self.conv_before_upsample(x) # verändert dim 
+            x = self.conv_last(self.upsample(x)) # upsampling with pixel shuffell
         elif self.upsampler == 'pixelshuffle_aux':
+            # bicubis interpolation
             bicubic = F.interpolate(x, size=(H * self.upscale, W * self.upscale), mode='bicubic', align_corners=False)
-            bicubic = self.conv_bicubic(bicubic)
-            x = self.conv_first(x)
-            x = self.conv_after_body(self.forward_features(x)) + x
-            x = self.conv_before_upsample(x)
+            bicubic = self.conv_bicubic(bicubic)  #nn.Conv2d(3, 64, 3, 1, 1)
+            x = self.conv_first(x) # shallow feature extraction
+            x = self.conv_after_body(self.forward_features(x)) + x # last conv layer in deep feature extraction -> takes care of patchembedding
+            # HQ image reconstruction
+            x = self.conv_before_upsample(x) # #nn.Conv2d(96, 64, 3, 1, 1)
+            # hier bitte paper beraten im bez. aux
             aux = self.conv_aux(x) # b, 3, LR_H, LR_W
             x = self.conv_after_aux(aux)
+
             x = self.upsample(x)[:, :, :H * self.upscale, :W * self.upscale] + bicubic[:, :, :H * self.upscale, :W * self.upscale]
-            x = self.conv_last(x)
+            x = self.conv_last(x) #nn.Conv2d(64, 3, 3, 1, 1) # high quality image reconstruction
             aux = aux / self.img_range + self.mean
         elif self.upsampler == 'pixelshuffle_hf':
             # for classical SR with HF
