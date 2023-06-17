@@ -1,4 +1,5 @@
 import argparse
+
 import cv2
 import numpy as np
 import torch
@@ -8,6 +9,19 @@ from main_test_swin2sr import define_model, test
 
 
 class Predictor(BasePredictor):
+    """
+    A class for making predictions using a pre-trained model.
+
+    Inherits from the BasePredictor class.
+
+    Attributes:
+        models (dict): Dictionary of pre-trained models for different tasks.
+        device (str): Device (e.g., "cuda:0") to run the models on.
+
+    Methods:
+        setup(): Load the models into memory for efficient prediction.
+        predict(image: Path, task: str) -> Path: Run a prediction on the specified image for the given task.
+    """
     def setup(self):
         """Load the model into memory to make running multiple predictions efficient"""
         print("Loading pipeline...")
@@ -43,7 +57,16 @@ class Predictor(BasePredictor):
             default="real_sr",
         ),
     ) -> Path:
-        """Run a single prediction on the model"""
+        """
+        Run a single prediction on the model.
+
+        Args:
+            image (Path): Path to the input image.
+            task (str): The task to perform the prediction for.
+
+        Returns:
+            Path: Path to the output image file.
+        """
 
         model = self.models[task]
 
