@@ -1,20 +1,21 @@
 import argparse
-import cv2
 import glob
-import numpy as np
-from collections import OrderedDict
 import os
-import torch
+from collections import OrderedDict
+
+import cv2
+import numpy as np
 import requests
+import torch
 
 from models.network_swin2sr import Swin2SR as net
 from utils import util_calculate_psnr_ssim as util
 
 
-def main():
+def main(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', type=str, default='color_dn', help='classical_sr, lightweight_sr, real_sr, '
-                                                                     'gray_dn, color_dn, jpeg_car, color_jpeg_car')
+                                                                    'gray_dn, color_dn, jpeg_car, color_jpeg_car')
     parser.add_argument('--scale', type=int, default=1,
                         help='scale factor: 1, 2, 3, 4, 8')  # 1 for dn and jpeg car
     parser.add_argument('--noise', type=int, default=15,
@@ -38,7 +39,8 @@ def main():
                         help='Overlapping of different tiles')
     parser.add_argument('--save_img_only', default=False,
                         action='store_true', help='save image and do not evaluate')
-    args = parser.parse_args()
+    
+    args = parser.parse_args(args) if args is not None else parser.parse_args()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # set up model
@@ -211,8 +213,7 @@ def define_model(args):
         param_key_g = 'params'
 
     pretrained_model = torch.load(args.model_path)
-    model.load_state_dict(pretrained_model[param_key_g] if param_key_g in pretrained_model.keys(
-    ) else pretrained_model, strict=True)
+    model.load_state_dict(pretrained_model[param_key_g] if param_key_g in pretrained_model else pretrained_model, strict=True)
 
     return model
 
@@ -221,10 +222,7 @@ def setup(args):
     # 001 classical image sr/ 002 lightweight image sr
     if args.task in ['classical_sr', 'lightweight_sr', 'compressed_sr']:
         save_dir = f'results/swin2sr_{args.task}_x{args.scale}'
-        if args.save_img_only:
-            folder = args.folder_lq
-        else:
-            folder = args.folder_gt
+        folder = args.folder_lq if args.save_img_only else args.folder_gt
         border = args.scale
         window_size = 8
 

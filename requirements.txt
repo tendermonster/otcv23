@@ -1,0 +1,5 @@
+timm
+torch
+opencv-python
+numpy
+wget
