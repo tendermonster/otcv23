@@ -46,24 +46,22 @@ This function converts the frames located in the ```results/swin2sr_compressed_s
 - For preductions use the ```predict.py``` script
 ### Example
 ```python
-from predictor import Predictor
+from predict import Predictor
+
 # Instantiate the predictor
 predictor = Predictor()
 # Setup the predictor (load models into memory)
 predictor.setup()
 # Specify the input image and task
-input_image = "path/to/input/image.jpg"
-task = "real_sr"
+input_image = "resources/test_image.jpg"
 # Make a prediction
-output_image = predictor.predict(input_image, task)
+output_image = predictor.predict(input_image, task="compressed_sr")
 # Print the path to the output image
 print("Output Image:", output_image)
 ```
 
 ## Example
-
 see ```main.py```
 
 ## License
-
 This project is licensed under the MIT License.

@@ -26,19 +26,19 @@ class Predictor(BasePredictor):
         """Load the model into memory to make running multiple predictions efficient"""
         print("Loading pipeline...")
 
-        self.device = "cuda:0"
-
+        if torch.cuda.is_available():
+            self.device = "cuda:0"
+        else:
+            self.device = "cpu"
         args = argparse.Namespace()
         args.scale = 4
         args.large_model = False
 
-        tasks = ["classical_sr", "compressed_sr", "real_sr"]
+        tasks = ["compressed_sr"]
         paths = [
-            "weights/Swin2SR_ClassicalSR_X4_64.pth",
-            "weights/Swin2SR_CompressedSR_X4_48.pth",
-            "weights/Swin2SR_RealworldSR_X4_64_BSRGAN_PSNR.pth",
+            "model_zoo/Swin2SR_CompressedSR_X4_48.pth",
         ]
-        sizes = [64, 48, 128]
+        sizes = [48]
 
         self.models = {}
         for task, path, size in zip(tasks, paths, sizes):
@@ -53,8 +53,8 @@ class Predictor(BasePredictor):
         image: Path = Input(description="Input image"),
         task: str = Input(
             description="Choose a task",
-            choices=["classical_sr", "real_sr", "compressed_sr"],
-            default="real_sr",
+            choices=["compressed_sr"],
+            default="compressed_sr",
         ),
     ) -> Path:
         """
