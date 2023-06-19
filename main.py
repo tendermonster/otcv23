@@ -22,15 +22,16 @@ def download_and_process_video():
 
 
 if __name__ == "__main__":
-    # video_to_frames()
-    # save()
-    # save_lossless()
-    # test_url = "https://dlcv2023.s3.eu-north-1.amazonaws.com/demo_small.mp4"
-    # test_path = "media/"
-    # download_file(test_url, test_path)
+    # 0. if needed download the model
+    if os.path.exists("model_zoo/Swin2SR_CompressedSR_X4_48.pth"):
+        model_url = "https://github.com/mv-lab/swin2sr/releases/download/v0.0.1/Swin2SR_CompressedSR_X4_48.pth"
+        model_path = "model_zoo/Swin2SR_CompressedSR_X4_48.pth"
+        download_file(model_url, model_path)
     # 1. download and process the video
     download_and_process_video()
     # 2. run the model and scale the frames
+    path_to_model = "model_zoo/Swin2SR_CompressedSR_X4_48.pth"
+    path_to_frames = "./media/video/"
     args = [
         "--task",
         "compressed_sr",
@@ -39,13 +40,11 @@ if __name__ == "__main__":
         "--training_patch_size",
         "48",
         "--model_path",
-        "model_zoo/Swin2SR_CompressedSR_X4_48.pth",
+        path_to_model,
         "--folder_lq",
-        "./media/video/",
+        path_to_frames,
         "--save_img_only",
     ]
-    # make args a Sequance[str]
-    # print(args)
     main(args)
     # 3. convert scaled and restored frames back to a video
     frames_to_video("results/swin2sr_compressed_sr_x4", "demo_output.mp4")
