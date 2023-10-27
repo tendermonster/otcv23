@@ -213,6 +213,7 @@ class WindowAttention(nn.Module):
         relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
         self.register_buffer("relative_position_index", relative_position_index)
 
+        # https://www.khanacademy.org/math/linear-algebra/matrix-transformations/linear-transformations/v/linear-transformations
         self.qkv = nn.Linear(dim, dim * 3, bias=False)
         if qkv_bias:
             self.q_bias = nn.Parameter(torch.zeros(dim))
@@ -419,12 +420,12 @@ class SwinTransformerBlock(nn.Module):
         return attn_mask
 
     def forward(self, x, x_size):
-        H, W = x_size
-        B, L, C = x.shape
+        H, W = x_size # 368, 648
+        B, L, C = x.shape # B:1 C:180 H:368 L:238464 W:648
         # assert L == H * W, "input feature has wrong size"
 
         shortcut = x
-        x = x.view(B, H, W, C)
+        x = x.view(B, H, W, C) # (1,368,648,180)
 
         # cyclic shift
         if self.shift_size > 0:
@@ -590,7 +591,7 @@ class BasicLayer(nn.Module):
                     input_resolution=input_resolution,
                     num_heads=num_heads,
                     window_size=window_size,
-                    shift_size=0 if (i % 2 == 0) else window_size // 2,
+                    shift_size=0 if (i % 2 == 0) else window_size // 2, # cyclic shift of windows. 
                     mlp_ratio=mlp_ratio,
                     qkv_bias=qkv_bias,
                     drop=drop,
@@ -853,7 +854,7 @@ class PatchUnEmbed(nn.Module):
         self.embed_dim = embed_dim
 
     def forward(self, x, x_size):
-        B, HW, C = x.shape
+        B, HW, C = x.shape # (B, HW, C)
         x = x.transpose(1, 2).view(B, self.embed_dim, x_size[0], x_size[1])  # B Ph*Pw C
         return x
 
@@ -1295,10 +1296,10 @@ class Swin2SR(nn.Module):
             bicubic = self.conv_bicubic(bicubic)  # nn.Conv2d(3, 64, 3, 1, 1)
             x = self.conv_first(x)  # shallow feature extraction
             x = (
-                self.conv_after_body(self.forward_features(x)) + x
+                self.conv_after_body(self.forward_features(x)) + x # deep features extraction
             )  # last conv layer in deep feature extraction -> takes care of patchembedding
             # HQ image reconstruction
-            x = self.conv_before_upsample(x)  # #nn.Conv2d(96, 64, 3, 1, 1)
+            x = self.conv_before_upsample(x)  # #nn.Conv2d(96, 64, 3, 1, 1) # x_before: (1,180,368,648) x_after: (1,64,368,648)
             # hier bitte paper beraten im bez. aux
             aux = self.conv_aux(x)  # b, 3, LR_H, LR_W
             x = self.conv_after_aux(aux)
